@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class DecisionTree:
 	def __init__(self):
@@ -11,19 +12,19 @@ class DecisionTree:
 		return root_node.predict(data)
 
 	def __str__(self):
-		node_queue = [self.root_node]
+		node_queue = [("", self.root_node)]
 		level_size = 0
 		count = 1
 		result = ""
 
 		while(len(node_queue) > 0):
 			count -= 1
-			n = node_queue[0]
+			k, n = node_queue[0]
 			del node_queue[0]
-			result += '(' + n.split_attribute_name + ', ' + n.label + ')'
+			result += '(' + k + ', ' + n.split_attribute_name + ', ' + n.label + ')'
 
 			for k, v in n.children.iteritems():
-				node_queue.append(v)
+				node_queue.append((k, v))
 			if count == 0:
 				count = len(node_queue)
 				result += '\n\n'
@@ -51,7 +52,7 @@ class DecisionTree:
 			# handle base cases
 			if all_data.shape[1] == 1: # no more attributes
 				# set label of node equal to most common label of data
-				self.label = list(max(set_of_labels, all_labels.count))[0]
+				self.label = max(set_of_labels, key=all_labels.count)
 				# print "no more attributes:", self.label
 				# raw_input()
 				return
@@ -62,10 +63,10 @@ class DecisionTree:
 				# raw_input()
 				return
 
-			self.label = list(max(set_of_labels, all_labels.count))[0]
+			self.label = max(set_of_labels, key=all_labels.count)
 			
 			# find attribute to split on
-			self.split_attribute_index = 0
+			self.split_attribute_index = self.selectBestSplitAttribute(all_data)
 			self.split_attribute_name = column_names[self.split_attribute_index]
 
 			# split data and create children
@@ -88,6 +89,37 @@ class DecisionTree:
 			attr = data[split_attribute_index]
 			subset_of_data = np.delete(data, split_attribute_index, 1)
 			prediction = self.children[data[split_attribute_index]].predict(data)
-
 			return prediction if prediction != 'unknown' else self.label
+
+		def selectBestSplitAttribute(self, all_data):
+			return np.argmin([calculateAttributeInformation(all_data, col) for col in range(all_data.shape[1] - 1)])
+
+def calculateAttributeInformation(all_data, column):
+	attribute_choices = list(set(all_data[:, column]))
+
+	choice_sum = 0
+	for choice in attribute_choices:
+		choice_data = np.array(filter(lambda x: x[column] == choice, all_data))
+		choice_count = len(choice_data)
+		choice_ratio = choice_count / float(len(all_data))
+		choice_sum += choice_ratio * calculateAttributeChoiceInformation(choice_data, column, choice)
+
+	return choice_sum
+
+def calculateAttributeChoiceInformation(choice_data, column, choice):
+	labels = list(set(choice_data[:, -1]))
+	
+	label_sum = 0
+	for label in labels:
+		label_count = len(np.array(filter(lambda x: x[-1] == label, choice_data)))
+		label_ratio = label_count / float(len(choice_data))
+		label_partial_sum = label_ratio * math.log(label_ratio, 2)
+		label_sum -= label_partial_sum
+
+	return label_sum
+
+
+
+
+
 
